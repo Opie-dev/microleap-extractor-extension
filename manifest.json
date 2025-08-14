@@ -1,0 +1,39 @@
+{
+    "manifest_version": 3,
+    "name": "MicroLeap Investment Data Extractor",
+    "version": "1.0.0",
+    "description": "Extract investment data from MicroLeap Asia dashboard",
+    "permissions": [
+        "activeTab",
+        "tabs",
+        "storage",
+        "scripting"
+    ],
+    "host_permissions": [
+        "https://dashboard.microleapasia.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://dashboard.microleapasia.com/*"
+            ],
+            "js": [
+                "shared-logger.js",
+                "content.js"
+            ],
+            "run_at": "document_end"
+        }
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "MicroLeap Data Extractor"
+    },
+    "icons": {
+        "16": "icon16.svg",
+        "48": "icon48.svg",
+        "128": "icon128.svg"
+    }
+}

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroLeap Data Extractor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏦 MicroLeap Data Extractor</h1>
+            <p>Extract investment data from MicroLeap Asia dashboard</p>
+        </div>
+
+        <div class="status-section">
+            <div class="status-item">
+                <span class="status-label">Dashboard:</span>
+                <span id="dashboardStatus" class="status-value">Not connected</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Login:</span>
+                <span id="loginStatus" class="status-value unknown">Unknown</span>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button id="openDashboard" class="btn btn-primary">
+                🌐 Open Dashboard
+            </button>
+
+            <button id="checkLogin" class="btn btn-secondary" disabled>
+                ✅ Verify Login
+            </button>
+
+            <button id="startExtraction" class="btn btn-success" disabled>
+                🚀 Start Extraction
+            </button>
+
+            <button id="downloadData" class="btn btn-download">
+                💾 Download Data
+            </button>
+
+            <button id="viewData" class="btn btn-view">
+                👁️ View Data
+            </button>
+
+            <button id="clearAll" class="btn btn-clear" style="display: none;">
+                🗑️ Clear All Data
+            </button>
+        </div>
+
+        <div class="progress-section" style="display: none;">
+            <div class="progress-label">
+                <span id="progressText">Initializing...</span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="log-section">
+            <div class="log-header">
+                <h3>📋 Activity Log</h3>
+                <div class="log-header-buttons">
+                    <button id="clearLogBtn" class="btn btn-danger btn-compact">
+                        🗑️ Clear
+                    </button>
+                    <button id="openLogWindow" class="btn btn-info btn-compact">
+                        📋 View
+                    </button>
+                </div>
+            </div>
+            <div id="logContainer" class="log-container">
+                <!-- Logs will be loaded from localStorage -->
+            </div>
+            <button id="cancelExtraction" class="btn btn-cancel" style="display: none; margin-top: 10px;">
+                🛑 Cancel Extraction
+            </button>
+        </div>
+
+        <div class="results-section" style="display: none;">
+            <h3>📊 Extraction Results</h3>
+            <div id="resultsContainer" class="results-container">
+                <div class="result-item">
+                    <span class="result-label">Investments Found:</span>
+                    <span id="investmentCount" class="result-value">0</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">With Payment Schedules:</span>
+                    <span id="scheduleCount" class="result-value">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Built for <a href="https://dashboard.microleapasia.com/" target="_blank">MicroLeap Asia</a></p>
+        </div>
+    </div>
+
+    <!-- Data Viewer Modal -->
+    <div id="dataViewerModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📊 Investment Data Viewer</h3>
+                <button id="modalCloseBtn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="data-controls">
+                    <button id="formatJsonBtn" class="btn btn-small btn-primary">🎨 Pretty</button>
+                    <button id="compactJsonBtn" class="btn btn-small btn-secondary">📝 Compact</button>
+                    <button id="copyModalBtn" class="btn btn-small btn-success">📋 Copy</button>
+                </div>
+                <div class="json-display">
+                    <pre id="modalJsonContent"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Log Modal -->
+    <div id="activityLogModal" class="modal" style="display: none;">
+        <div class="modal-content activity-log-modal">
+            <div class="log-stats">
+                <button id="logModalCloseBtn" class="modal-close">&times;</button>
+                <div class="stat">
+                    <div class="status-indicator"></div>
+                    <span>Live</span>
+                </div>
+                <div class="stat">
+                    📊 <span id="modalLogCount">0</span> entries
+                </div>
+                <span class="divider">•</span>
+            </div>
+            <div class="stat">
+                Last updated: <span id="modalLastUpdate">Never</span>
+            </div>
+            <div class="modal-body">
+                <div class="activity-log-container" id="modalLogContainer">
+                    <div class="empty-log-state">
+                        <div class="empty-icon">📋</div>
+                        <p>No activity yet</p>
+                        <small>Logs will appear here when you start using the extension</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="shared-logger.js"></script>
+    <script src="popup.js"></script>
+</body>
+
+</html>
