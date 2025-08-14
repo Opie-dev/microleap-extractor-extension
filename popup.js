@@ -176,20 +176,19 @@ async function handleOpenDashboard() {
         updateStatus('loginStatus', response.isLoggedIn ? 'Logged in' : 'Login required', 
                     response.isLoggedIn ? 'success' : 'warning');
         
-        setButtonState('checkLogin', true);
-        setButtonState('startExtraction', response.isLoggedIn);
-        
         addLog(response.message, response.isLoggedIn ? 'success' : 'warning');
         
         if (!response.isLoggedIn) {
             addLog('Please log in manually on the dashboard tab, then click "Verify Login"', 'warning');
         }
+        
+        // Use updateUIFlow to properly manage button states
+        updateUIFlow(false, response.isLoggedIn, true);
     } else {
         updateStatus('dashboardStatus', 'Error', 'error');
         addLog(`Error: ${response.error}`, 'error');
+        setButtonState('openDashboard', true);
     }
-    
-    setButtonState('openDashboard', true);
 }
 
 async function handleCheckLogin() {
@@ -202,18 +201,19 @@ async function handleCheckLogin() {
         updateStatus('loginStatus', response.isLoggedIn ? 'Logged in' : 'Login required', 
                     response.isLoggedIn ? 'success' : 'warning');
         
-        setButtonState('startExtraction', response.isLoggedIn);
         addLog(response.message, response.isLoggedIn ? 'success' : 'warning');
         
         if (!response.isLoggedIn) {
             addLog('Please log in manually and try again', 'warning');
         }
+        
+        // Use updateUIFlow to properly manage button states
+        updateUIFlow(false, response.isLoggedIn, true);
     } else {
         updateStatus('loginStatus', 'Error', 'error');
         addLog(`Error: ${response.error}`, 'error');
+        setButtonState('checkLogin', true);
     }
-    
-    setButtonState('checkLogin', true);
 }
 
 async function handleStartExtraction() {
