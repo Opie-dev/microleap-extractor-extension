@@ -294,8 +294,8 @@ body {
     max-height: 150px;
     overflow-y: auto;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 11px;
-    line-height: 1.4;
+    font-size: 9px;
+    line-height: 1.3;
 }
 
 .log-entry {
@@ -675,7 +675,6 @@ body {
 
 .log-entry {
     display: block;
-    margin-bottom: 6px;
     padding: 3px 0;
     background: transparent;
     border: none;
@@ -683,8 +682,8 @@ body {
     box-shadow: none;
     transition: none;
     font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
-    font-size: 13px;
-    line-height: 1.5;
+    font-size: 12px;
+    line-height: 1.4;
 }
 
 .log-entry:hover {
@@ -715,7 +714,7 @@ body {
 .log-time {
     display: inline;
     font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
-    font-size: 13px;
+    font-size: 10px;
     color: #888;
     margin-right: 8px;
     padding: 0;
@@ -726,8 +725,8 @@ body {
 
 .log-message {
     display: inline;
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: 10px;
+    line-height: 1.3;
     color: #d4d4d4;
     word-break: break-word;
     font-family: 'Courier New', 'Monaco', 'Menlo', monospace;

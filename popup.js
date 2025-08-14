@@ -631,13 +631,9 @@ function renderModalLogs() {
 
 function updateModalStats() {
     const logCount = document.getElementById('modalLogCount');
-    const lastUpdate = document.getElementById('modalLastUpdate');
     
     if (logCount) {
         logCount.textContent = modalLogEntries.length;
-    }
-    if (lastUpdate) {
-        lastUpdate.textContent = new Date().toLocaleTimeString();
     }
 }
 
