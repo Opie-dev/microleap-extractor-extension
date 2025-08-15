@@ -69,16 +69,13 @@
                     <button id="clearLogBtn" class="btn btn-danger btn-compact">
                         🗑️ Clear
                     </button>
-                    <button id="openLogWindow" class="btn btn-info btn-compact">
-                        📋 View
-                    </button>
                 </div>
             </div>
             <div id="logContainer" class="log-container">
                 <!-- Logs will be loaded from localStorage -->
             </div>
             <button id="cancelExtraction" class="btn btn-cancel" style="display: none; margin-top: 10px;">
-                🛑 Cancel Extraction
+                🛑 Cancel Extraction & Clear Log
             </button>
         </div>
 
@@ -121,32 +118,7 @@
         </div>
     </div>
 
-    <!-- Activity Log Modal -->
-    <div id="activityLogModal" class="modal" style="display: none;">
-        <div class="modal-content activity-log-modal">
-            <div class="log-stats">
-                <button id="logModalCloseBtn" class="modal-close">&times;</button>
-                <div class="stat">
-                    <div class="status-indicator"></div>
-                    <span>Live</span>
-                </div>
-                <div class="stat">
-                    📊 <span id="modalLogCount">0</span> entries
-                </div>
-                <span class="divider">•</span>
-            </div>
 
-            <div class="modal-body">
-                <div class="activity-log-container" id="modalLogContainer">
-                    <div class="empty-log-state">
-                        <div class="empty-icon">📋</div>
-                        <p>No activity yet</p>
-                        <small>Logs will appear here when you start using the extension</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script src="shared-logger.js"></script>
     <script src="popup.js"></script>

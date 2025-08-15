@@ -4,6 +4,10 @@
 let logHistory = [];
 let logContainer = null;
 
+// Queue system for sequential log display with animation
+let pendingLogQueue = [];
+let isProcessingLogQueue = false;
+
 // Global duplicate prevention using localStorage and window object
 const DUPLICATE_TRACKING_KEY = 'microleap_duplicate_tracking';
 const DUPLICATE_WINDOW_MS = 2000; // 2 seconds window for duplicate prevention
@@ -84,14 +88,9 @@ function addLog(message, type = 'info') {
         date: now.toLocaleDateString()
     };
     
-    // ALWAYS display in UI first (regardless of storage limit)
+    // Queue log for sequential display with animation
     if (logContainer) {
-        const logElement = document.createElement('div');
-        logElement.className = `log-entry ${type}`;
-        logElement.textContent = `[${timestamp}] ${message}`;
-        logElement.setAttribute('data-log-id', logEntryId);
-        logContainer.appendChild(logElement);
-        logContainer.scrollTop = logContainer.scrollHeight;
+        queueLogForDisplay(logEntry, logEntryId);
     }
     
     // Add to history for localStorage
@@ -136,24 +135,18 @@ function loadLogHistory() {
             if (logContainer) {
                 logContainer.innerHTML = '';
                 
-                // Display existing logs immediately without animation (for popup load)
+                // Display existing logs immediately without animation (for popup open)
                 logHistory.forEach((log) => {
+                    // Always generate a safe ID (ignore old unsafe IDs from localStorage)
+                    const logId = `log-${simpleHash(log.message + log.type + log.timestamp)}`;
+                    
+                    // Create log element immediately without animation
                     const logElement = document.createElement('div');
                     logElement.className = `log-entry ${log.type}`;
                     logElement.textContent = `[${log.timestamp}] ${log.message}`;
-                    
-                    // Always generate a safe ID (ignore old unsafe IDs from localStorage)
-                    const logId = `log-${simpleHash(log.message + log.type + log.timestamp)}`;
                     logElement.setAttribute('data-log-id', logId);
                     
-                    // Check if this log element already exists in the container
-                    const existingElement = logContainer.querySelector(`[data-log-id="${logId}"]`);
-                    if (existingElement) {
-                        console.log('Skipping duplicate log element:', log.message);
-                        return;
-                    }
-                    
-                    // No animation for existing logs - they appear immediately
+                    // No animation - appears immediately
                     logElement.style.opacity = '1';
                     logElement.style.transform = 'translateY(0)';
                     
@@ -176,10 +169,76 @@ function clearLogHistory() {
     // Also clear duplicate tracking when logs are cleared
     localStorage.removeItem(DUPLICATE_TRACKING_KEY);
     
+    // Clear pending queue and stop processing
+    pendingLogQueue = [];
+    isProcessingLogQueue = false;
+    
     if (logContainer) {
         logContainer.innerHTML = '';
     }
     addLog('Log history cleared.');
+}
+
+function queueLogForDisplay(logEntry, logEntryId) {
+    const logDisplayItem = {
+        logEntry: logEntry,
+        logEntryId: logEntryId
+    };
+    
+    pendingLogQueue.push(logDisplayItem);
+    
+    // Start processing queue if not already processing
+    if (!isProcessingLogQueue) {
+        processLogQueue();
+    }
+}
+
+function processLogQueue() {
+    if (pendingLogQueue.length === 0 || !logContainer) {
+        isProcessingLogQueue = false;
+        return;
+    }
+    
+    isProcessingLogQueue = true;
+    
+    // Get the next log from queue
+    const logDisplayItem = pendingLogQueue.shift();
+    const { logEntry, logEntryId } = logDisplayItem;
+    
+    // Create and display log element with animation
+    const logElement = document.createElement('div');
+    logElement.className = `log-entry ${logEntry.type}`;
+    logElement.textContent = `[${logEntry.timestamp}] ${logEntry.message}`;
+    logElement.setAttribute('data-log-id', logEntryId);
+    
+    // Add fade-in animation
+    logElement.style.opacity = '0';
+    logElement.style.transform = 'translateY(10px)';
+    logElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    
+    logContainer.appendChild(logElement);
+    
+    // Trigger animation
+    requestAnimationFrame(() => {
+        logElement.style.opacity = '1';
+        logElement.style.transform = 'translateY(0)';
+    });
+    
+    // Auto-scroll to bottom
+    logContainer.scrollTop = logContainer.scrollHeight;
+    
+    // Determine delay for real-time logs
+    const isActiveExtraction = logEntry.message.includes('Starting extraction') || 
+                              logEntry.message.includes('Completed') || 
+                              logEntry.message.includes('extracting details') ||
+                              logEntry.message.includes('Payment');
+    
+    const delay = isActiveExtraction ? 80 : 150; // Faster during extraction
+    
+    // Process next log after delay
+    setTimeout(() => {
+        processLogQueue();
+    }, delay);
 }
 
 // Export functions for use in other scripts

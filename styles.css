@@ -291,7 +291,7 @@ body {
     background: #1e293b;
     border-radius: 6px;
     padding: 12px;
-    max-height: 150px;
+    max-height: 400px;
     overflow-y: auto;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 9px;
@@ -538,63 +538,7 @@ body {
     color: #9ca3af;
 }
 
-/* Activity Log Modal Styles */
-.activity-log-modal {
-    width: 95%;
-    max-width: 1000px;
-    max-height: 85vh;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
-}
-
-.activity-log-modal .modal-body {
-    padding: 0;
-    margin: 0;
-}
-
-.activity-log-modal .modal-header {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    color: white;
-    padding: 20px;
-    text-align: center;
-    border-bottom: none;
-}
-
-.activity-log-modal .modal-header h3 {
-    font-size: 20px;
-    margin: 0;
-    font-weight: 600;
-}
-
-.activity-log-modal .modal-close {
-    position: absolute;
-    top: 48%;
-    right: 12px;
-    transform: translateY(-50%);
-    background: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    z-index: 10;
-}
-
-.activity-log-modal .modal-close:hover {
-    background: #c82333;
-    transform: translateY(-50%) scale(1.1);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-}
+/* Activity log modal styles removed - all logs now display in main container */
 
 .log-controls {
     display: flex;

@@ -48,6 +48,10 @@ function showProgress(show = true) {
     if (elements.cancelExtraction) {
         elements.cancelExtraction.style.display = show ? 'block' : 'none';
     }
+    // Hide/show clear log button during extraction
+    if (elements.clearLogBtn) {
+        elements.clearLogBtn.style.display = show ? 'none' : 'block';
+    }
 }
 
 function showResults(show = true) {
@@ -304,14 +308,7 @@ function handleViewData() {
     }
 }
 
-function handleOpenLogWindow() {
-    try {
-        showActivityLogModal();
-    } catch (error) {
-        console.error('Error opening activity log:', error);
-        addLog(`Failed to open activity log: ${error.message}`, 'error');
-    }
-}
+// Activity log modal functionality removed - logs are now displayed directly in main container
 
 function handleClearLog() {
     const confirmed = confirm(
@@ -398,23 +395,7 @@ function setupModalEventListeners() {
     }
 }
 
-function setupActivityLogModalEventListeners() {
-    // Close button
-    const closeBtn = document.getElementById('logModalCloseBtn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeActivityLogModal);
-    }
-    
-    // Click outside to close
-    const modal = document.getElementById('activityLogModal');
-    if (modal) {
-        modal.addEventListener('click', function(event) {
-            if (event.target === modal) {
-                closeActivityLogModal();
-            }
-        });
-    }
-}
+// Modal event listeners removed
 
 function closeDataViewer() {
     const modal = document.getElementById('dataViewerModal');
@@ -523,270 +504,9 @@ async function copyModalData(event) {
     }
 }
 
-// Activity Log Modal Functions  
-let modalLogEntries = [];
-let allModalLogs = []; // Track ALL logs for modal display (not limited by localStorage)
-let pendingModalLogs = []; // Queue for logs waiting to be displayed with animation
-let isProcessingModalQueue = false; // Flag to prevent multiple queue processing
+// Activity log modal functionality removed - all logs now display in main container
 
-function showActivityLogModal() {
-    const modal = document.getElementById('activityLogModal');
-    modal.style.display = 'flex';
-    
-    // Initialize modal with all logs (both from localStorage and unlimited tracking)
-    initializeModalLogs();
-    
-    // Set up auto-refresh interval (clear any existing one first)
-    if (window.modalLogInterval) {
-        clearInterval(window.modalLogInterval);
-    }
-    
-    // Start with faster refresh rate (500ms) for better responsiveness during extraction
-    window.modalLogInterval = setInterval(loadModalLogs, 500);
-}
-
-function closeActivityLogModal() {
-    const modal = document.getElementById('activityLogModal');
-    modal.style.display = 'none';
-    
-    // Clear auto-refresh interval
-    if (window.modalLogInterval) {
-        clearInterval(window.modalLogInterval);
-        window.modalLogInterval = null;
-    }
-    
-    // Clear pending queue and stop processing
-    pendingModalLogs = [];
-    isProcessingModalQueue = false;
-}
-
-function initializeModalLogs() {
-    try {
-        // Start with logs from localStorage (limited to 100)
-        const storedLogs = localStorage.getItem('microleap_log_history');
-        if (storedLogs) {
-            modalLogEntries = JSON.parse(storedLogs);
-        } else {
-            modalLogEntries = [];
-        }
-        
-        // If we have additional logs beyond localStorage limit, use them
-        if (allModalLogs.length > modalLogEntries.length) {
-            modalLogEntries = [...allModalLogs];
-        }
-        
-        // Render all logs
-        renderModalLogs();
-        updateModalStats();
-    } catch (error) {
-        console.error('Error initializing modal logs:', error);
-    }
-}
-
-function loadModalLogs() {
-    // This function now mainly handles localStorage updates
-    // Real-time updates come through the message listener
-    try {
-        const storedLogs = localStorage.getItem('microleap_log_history');
-        if (storedLogs) {
-            const logs = JSON.parse(storedLogs);
-            
-            // Only update if localStorage has more recent data and we don't have unlimited logs
-            if (logs.length > modalLogEntries.length && allModalLogs.length === 0) {
-                const newLogs = logs.slice(modalLogEntries.length);
-                modalLogEntries = [...modalLogEntries, ...newLogs];
-                renderNewModalLogs(newLogs);
-                updateModalStats();
-            } else if (logs.length < modalLogEntries.length && allModalLogs.length === 0) {
-                // Logs were cleared
-                modalLogEntries = logs;
-                allModalLogs = [];
-                renderModalLogs();
-                updateModalStats();
-            }
-        }
-    } catch (error) {
-        console.error('Error loading modal logs:', error);
-    }
-}
-
-function renderModalLogs() {
-    const logContainer = document.getElementById('modalLogContainer');
-    if (!logContainer) return;
-
-    if (modalLogEntries.length === 0) {
-        logContainer.innerHTML = `
-            <div class="empty-log-state">
-                <div class="empty-icon">📋</div>
-                <p>No activity yet</p>
-                <small>Logs will appear here when you start using the extension</small>
-            </div>
-        `;
-        return;
-    }
-
-    // Clear and re-render all logs immediately without animation (used for initial load or when logs are cleared)
-    logContainer.innerHTML = '';
-    
-    modalLogEntries.forEach((log) => {
-        addModalLogElementWithoutAnimation(log);
-    });
-    
-    // Auto-scroll to bottom after all logs are loaded
-    logContainer.scrollTop = logContainer.scrollHeight;
-}
-
-function renderNewModalLogs(newLogs) {
-    const logContainer = document.getElementById('modalLogContainer');
-    if (!logContainer) return;
-    
-    // Remove empty state if it exists
-    const emptyState = logContainer.querySelector('.empty-log-state');
-    if (emptyState) {
-        emptyState.remove();
-    }
-    
-    // During active extraction, add logs more quickly to keep up with rapid updates
-    const isActiveExtraction = newLogs.some(log => 
-        log.message.includes('Starting extraction') || 
-        log.message.includes('Completed') || 
-        log.message.includes('extracting details')
-    );
-    
-    // Use shorter delays during active extraction to prevent backlog
-    const animationDelay = isActiveExtraction ? 50 : 150; // Faster during extraction
-    
-    // Add only the new logs with animation
-    newLogs.forEach((log, index) => {
-        setTimeout(() => {
-            addModalLogElement(log);
-        }, index * animationDelay);
-    });
-}
-
-function addModalLogElement(log) {
-    const logContainer = document.getElementById('modalLogContainer');
-    if (!logContainer) return;
-    
-    // Use the same logic as shared-logger.js for consistency
-    const logType = log.type || 'info'; // Use 'type' field consistently
-    const timestamp = log.timestamp || 'Unknown';
-    
-    // Create log element with consistent formatting (same as shared-logger.js)
-    const logElement = document.createElement('div');
-    logElement.className = `log-entry ${logType}`;
-    logElement.textContent = `[${timestamp}] ${log.message}`;
-    
-    // Add unique identifier for duplicate detection (consistent with shared-logger.js)
-    const logId = log.id || `log-${window.MicroLeapLogger.simpleHash(log.message + logType + timestamp)}`;
-    logElement.setAttribute('data-log-id', logId);
-    
-    // Check if this log element already exists in the container
-    const existingElement = logContainer.querySelector(`[data-log-id="${logId}"]`);
-    if (existingElement) {
-        console.log('Skipping duplicate modal log element:', log.message);
-        return;
-    }
-    
-    // Add fade-in animation (same as shared-logger.js)
-    logElement.style.opacity = '0';
-    logElement.style.transform = 'translateY(10px)';
-    logElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-    
-    logContainer.appendChild(logElement);
-    
-    // Trigger animation
-    requestAnimationFrame(() => {
-        logElement.style.opacity = '1';
-        logElement.style.transform = 'translateY(0)';
-        
-        // Ensure auto-scroll to bottom after animation starts
-        setTimeout(() => {
-            logContainer.scrollTop = logContainer.scrollHeight;
-        }, 100); // Small delay to ensure element is fully rendered
-    });
-}
-
-function addModalLogElementWithoutAnimation(log) {
-    const logContainer = document.getElementById('modalLogContainer');
-    if (!logContainer) return;
-    
-    // Use the same logic as shared-logger.js for consistency
-    const logType = log.type || 'info'; // Use 'type' field consistently
-    const timestamp = log.timestamp || 'Unknown';
-    
-    // Create log element with consistent formatting (same as shared-logger.js)
-    const logElement = document.createElement('div');
-    logElement.className = `log-entry ${logType}`;
-    logElement.textContent = `[${timestamp}] ${log.message}`;
-    
-    // Add unique identifier for duplicate detection (consistent with shared-logger.js)
-    const logId = log.id || `log-${window.MicroLeapLogger.simpleHash(log.message + logType + timestamp)}`;
-    logElement.setAttribute('data-log-id', logId);
-    
-    // Check if this log element already exists in the container
-    const existingElement = logContainer.querySelector(`[data-log-id="${logId}"]`);
-    if (existingElement) {
-        console.log('Skipping duplicate modal log element:', log.message);
-        return;
-    }
-    
-    // No animation for existing logs - they appear immediately
-    logElement.style.opacity = '1';
-    logElement.style.transform = 'translateY(0)';
-    
-    logContainer.appendChild(logElement);
-}
-
-function queueModalLog(logEntry) {
-    pendingModalLogs.push(logEntry);
-    
-    // Start processing queue if not already processing
-    if (!isProcessingModalQueue) {
-        processModalLogQueue();
-    }
-}
-
-function processModalLogQueue() {
-    if (pendingModalLogs.length === 0) {
-        isProcessingModalQueue = false;
-        return;
-    }
-    
-    isProcessingModalQueue = true;
-    
-    // Get the next log from queue
-    const logEntry = pendingModalLogs.shift();
-    
-    // Add to modal entries
-    modalLogEntries.push(logEntry);
-    
-    // Display with animation
-    addModalLogElement(logEntry);
-    
-    // Update stats
-    updateModalStats();
-    
-    // During active extraction, process queue faster
-    const isActiveExtraction = logEntry.message.includes('Starting extraction') || 
-                              logEntry.message.includes('Completed') || 
-                              logEntry.message.includes('extracting details');
-    
-    const delay = isActiveExtraction ? 100 : 200; // Faster during extraction
-    
-    // Process next log after delay
-    setTimeout(() => {
-        processModalLogQueue();
-    }, delay);
-}
-
-function updateModalStats() {
-    const logCount = document.getElementById('modalLogCount');
-    
-    if (logCount) {
-        logCount.textContent = modalLogEntries.length;
-    }
-}
+// Modal functions removed - all logging now happens in main container
 
 
 
@@ -805,6 +525,11 @@ async function handleCancelExtraction() {
         const response = await sendMessage('cancelExtraction');
         if (response.success) {
             addLog('Extraction cancelled successfully', 'warning');
+            
+            // Clear activity logs after cancelling extraction
+            setTimeout(() => {
+                window.MicroLeapLogger.clearLogHistory();
+            }, 1000); // Wait 1 second before clearing to show the cancel message
             
             // Hide progress and cancel button
             showProgress(false);
@@ -891,21 +616,7 @@ chrome.runtime.onMessage.addListener((message) => {
             // Duplicate prevention is now handled by the shared logger
             addLog(message.message, message.logType);
             
-            // Also add to unlimited modal logs for activity log modal
-            const logNow = new Date();
-            const logEntry = {
-                timestamp: logNow.toLocaleTimeString(),
-                message: message.message,
-                type: message.logType || 'info',
-                fullTimestamp: logNow.toISOString(),
-                date: logNow.toLocaleDateString()
-            };
-            allModalLogs.push(logEntry);
-            
-            // Update modal if it's open - add to queue for sequential display
-            if (document.getElementById('activityLogModal').style.display === 'flex') {
-                queueModalLog(logEntry);
-            }
+            // Modal functionality removed - all logs now display in main container
             break;
             
         case 'progressUpdate':
@@ -1015,7 +726,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (elements.startExtraction) elements.startExtraction.addEventListener('click', handleStartExtraction);
     if (elements.downloadData) elements.downloadData.addEventListener('click', handleDownloadData);
     if (elements.viewData) elements.viewData.addEventListener('click', handleViewData);
-    if (elements.openLogWindow) elements.openLogWindow.addEventListener('click', handleOpenLogWindow);
+    // Modal functionality removed
     if (elements.clearLogBtn) elements.clearLogBtn.addEventListener('click', handleClearLog);
     
     // Add clear button listener with safety check
@@ -1121,8 +832,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateUIFlow(false, false, false);
     }
     
-    // Setup activity log modal event listeners
-    setupActivityLogModalEventListeners();
+    // Modal functionality removed
     
     // Auto-validate dashboard and login status on popup open
     await autoValidateStatus();
