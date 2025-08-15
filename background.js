@@ -206,7 +206,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       switch (message.action) {
         case "checkDashboard":
-          console.log("Checking dashboard connection...");
           try {
             const url = "https://dashboard.microleapasia.com/";
             const tabs = await chrome.tabs.query({ url: url + "*" });

@@ -166,7 +166,6 @@ async function sendMessage(action, payload = {}) {
 
 // Event handlers
 async function handleOpenDashboard() {
-    addLog('Opening MicroLeap dashboard...');
     setButtonState('openDashboard', false);
     
     const response = await sendMessage('openDashboard');
@@ -192,7 +191,6 @@ async function handleOpenDashboard() {
 }
 
 async function handleCheckLogin() {
-    addLog('Checking login status...');
     setButtonState('checkLogin', false);
     
     const response = await sendMessage('checkLoginStatus');
@@ -308,9 +306,7 @@ function handleViewData() {
 
 function handleOpenLogWindow() {
     try {
-        addLog('Opening activity log...', 'info');
         showActivityLogModal();
-        addLog('Activity log opened', 'success');
     } catch (error) {
         console.error('Error opening activity log:', error);
         addLog(`Failed to open activity log: ${error.message}`, 'error');
@@ -529,19 +525,24 @@ async function copyModalData(event) {
 
 // Activity Log Modal Functions  
 let modalLogEntries = [];
+let allModalLogs = []; // Track ALL logs for modal display (not limited by localStorage)
+let pendingModalLogs = []; // Queue for logs waiting to be displayed with animation
+let isProcessingModalQueue = false; // Flag to prevent multiple queue processing
 
 function showActivityLogModal() {
     const modal = document.getElementById('activityLogModal');
     modal.style.display = 'flex';
     
-    // Load logs and start auto-refresh
-    loadModalLogs();
+    // Initialize modal with all logs (both from localStorage and unlimited tracking)
+    initializeModalLogs();
     
     // Set up auto-refresh interval (clear any existing one first)
     if (window.modalLogInterval) {
         clearInterval(window.modalLogInterval);
     }
-    window.modalLogInterval = setInterval(loadModalLogs, 1000);
+    
+    // Start with faster refresh rate (500ms) for better responsiveness during extraction
+    window.modalLogInterval = setInterval(loadModalLogs, 500);
 }
 
 function closeActivityLogModal() {
@@ -553,15 +554,53 @@ function closeActivityLogModal() {
         clearInterval(window.modalLogInterval);
         window.modalLogInterval = null;
     }
+    
+    // Clear pending queue and stop processing
+    pendingModalLogs = [];
+    isProcessingModalQueue = false;
+}
+
+function initializeModalLogs() {
+    try {
+        // Start with logs from localStorage (limited to 100)
+        const storedLogs = localStorage.getItem('microleap_log_history');
+        if (storedLogs) {
+            modalLogEntries = JSON.parse(storedLogs);
+        } else {
+            modalLogEntries = [];
+        }
+        
+        // If we have additional logs beyond localStorage limit, use them
+        if (allModalLogs.length > modalLogEntries.length) {
+            modalLogEntries = [...allModalLogs];
+        }
+        
+        // Render all logs
+        renderModalLogs();
+        updateModalStats();
+    } catch (error) {
+        console.error('Error initializing modal logs:', error);
+    }
 }
 
 function loadModalLogs() {
+    // This function now mainly handles localStorage updates
+    // Real-time updates come through the message listener
     try {
         const storedLogs = localStorage.getItem('microleap_log_history');
         if (storedLogs) {
             const logs = JSON.parse(storedLogs);
-            if (JSON.stringify(logs) !== JSON.stringify(modalLogEntries)) {
+            
+            // Only update if localStorage has more recent data and we don't have unlimited logs
+            if (logs.length > modalLogEntries.length && allModalLogs.length === 0) {
+                const newLogs = logs.slice(modalLogEntries.length);
+                modalLogEntries = [...modalLogEntries, ...newLogs];
+                renderNewModalLogs(newLogs);
+                updateModalStats();
+            } else if (logs.length < modalLogEntries.length && allModalLogs.length === 0) {
+                // Logs were cleared
                 modalLogEntries = logs;
+                allModalLogs = [];
                 renderModalLogs();
                 updateModalStats();
             }
@@ -586,47 +625,159 @@ function renderModalLogs() {
         return;
     }
 
-    const logHTML = modalLogEntries.map(log => {
-        // Handle both 'type' (from shared logger) and 'logType' (legacy) fields
-        const logType = log.logType || log.type || 'default';
-        
-        // Handle different timestamp formats properly
-        let timeStr = '';
-        if (log.time) {
-            // Use existing time string if available (legacy)
-            timeStr = log.time;
-        } else if (log.timestamp) {
-            // The timestamp field is already a formatted time string from shared logger
-            timeStr = log.timestamp;
-        } else if (log.fullTimestamp) {
-            // Fallback to parsing the ISO timestamp
-            try {
-                const date = new Date(log.fullTimestamp);
-                if (!isNaN(date.getTime())) {
-                    timeStr = date.toLocaleTimeString();
-                } else {
-                    timeStr = 'Unknown';
-                }
-            } catch (e) {
-                timeStr = 'Unknown';
-            }
-        } else {
-            // No timestamp available
-            timeStr = 'Unknown';
-        }
-        
-        return `
-            <div class="log-entry ${logType}">
-                <span class="log-time">[${timeStr}]</span>
-                <span class="log-message">${escapeHtml(log.message)}</span>
-            </div>
-        `;
-    }).join('');
-
-    logContainer.innerHTML = logHTML;
-
-    // Auto-scroll to bottom (always enabled)
+    // Clear and re-render all logs immediately without animation (used for initial load or when logs are cleared)
+    logContainer.innerHTML = '';
+    
+    modalLogEntries.forEach((log) => {
+        addModalLogElementWithoutAnimation(log);
+    });
+    
+    // Auto-scroll to bottom after all logs are loaded
     logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+function renderNewModalLogs(newLogs) {
+    const logContainer = document.getElementById('modalLogContainer');
+    if (!logContainer) return;
+    
+    // Remove empty state if it exists
+    const emptyState = logContainer.querySelector('.empty-log-state');
+    if (emptyState) {
+        emptyState.remove();
+    }
+    
+    // During active extraction, add logs more quickly to keep up with rapid updates
+    const isActiveExtraction = newLogs.some(log => 
+        log.message.includes('Starting extraction') || 
+        log.message.includes('Completed') || 
+        log.message.includes('extracting details')
+    );
+    
+    // Use shorter delays during active extraction to prevent backlog
+    const animationDelay = isActiveExtraction ? 50 : 150; // Faster during extraction
+    
+    // Add only the new logs with animation
+    newLogs.forEach((log, index) => {
+        setTimeout(() => {
+            addModalLogElement(log);
+        }, index * animationDelay);
+    });
+}
+
+function addModalLogElement(log) {
+    const logContainer = document.getElementById('modalLogContainer');
+    if (!logContainer) return;
+    
+    // Use the same logic as shared-logger.js for consistency
+    const logType = log.type || 'info'; // Use 'type' field consistently
+    const timestamp = log.timestamp || 'Unknown';
+    
+    // Create log element with consistent formatting (same as shared-logger.js)
+    const logElement = document.createElement('div');
+    logElement.className = `log-entry ${logType}`;
+    logElement.textContent = `[${timestamp}] ${log.message}`;
+    
+    // Add unique identifier for duplicate detection (consistent with shared-logger.js)
+    const logId = log.id || `log-${window.MicroLeapLogger.simpleHash(log.message + logType + timestamp)}`;
+    logElement.setAttribute('data-log-id', logId);
+    
+    // Check if this log element already exists in the container
+    const existingElement = logContainer.querySelector(`[data-log-id="${logId}"]`);
+    if (existingElement) {
+        console.log('Skipping duplicate modal log element:', log.message);
+        return;
+    }
+    
+    // Add fade-in animation (same as shared-logger.js)
+    logElement.style.opacity = '0';
+    logElement.style.transform = 'translateY(10px)';
+    logElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    
+    logContainer.appendChild(logElement);
+    
+    // Trigger animation
+    requestAnimationFrame(() => {
+        logElement.style.opacity = '1';
+        logElement.style.transform = 'translateY(0)';
+        
+        // Ensure auto-scroll to bottom after animation starts
+        setTimeout(() => {
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }, 100); // Small delay to ensure element is fully rendered
+    });
+}
+
+function addModalLogElementWithoutAnimation(log) {
+    const logContainer = document.getElementById('modalLogContainer');
+    if (!logContainer) return;
+    
+    // Use the same logic as shared-logger.js for consistency
+    const logType = log.type || 'info'; // Use 'type' field consistently
+    const timestamp = log.timestamp || 'Unknown';
+    
+    // Create log element with consistent formatting (same as shared-logger.js)
+    const logElement = document.createElement('div');
+    logElement.className = `log-entry ${logType}`;
+    logElement.textContent = `[${timestamp}] ${log.message}`;
+    
+    // Add unique identifier for duplicate detection (consistent with shared-logger.js)
+    const logId = log.id || `log-${window.MicroLeapLogger.simpleHash(log.message + logType + timestamp)}`;
+    logElement.setAttribute('data-log-id', logId);
+    
+    // Check if this log element already exists in the container
+    const existingElement = logContainer.querySelector(`[data-log-id="${logId}"]`);
+    if (existingElement) {
+        console.log('Skipping duplicate modal log element:', log.message);
+        return;
+    }
+    
+    // No animation for existing logs - they appear immediately
+    logElement.style.opacity = '1';
+    logElement.style.transform = 'translateY(0)';
+    
+    logContainer.appendChild(logElement);
+}
+
+function queueModalLog(logEntry) {
+    pendingModalLogs.push(logEntry);
+    
+    // Start processing queue if not already processing
+    if (!isProcessingModalQueue) {
+        processModalLogQueue();
+    }
+}
+
+function processModalLogQueue() {
+    if (pendingModalLogs.length === 0) {
+        isProcessingModalQueue = false;
+        return;
+    }
+    
+    isProcessingModalQueue = true;
+    
+    // Get the next log from queue
+    const logEntry = pendingModalLogs.shift();
+    
+    // Add to modal entries
+    modalLogEntries.push(logEntry);
+    
+    // Display with animation
+    addModalLogElement(logEntry);
+    
+    // Update stats
+    updateModalStats();
+    
+    // During active extraction, process queue faster
+    const isActiveExtraction = logEntry.message.includes('Starting extraction') || 
+                              logEntry.message.includes('Completed') || 
+                              logEntry.message.includes('extracting details');
+    
+    const delay = isActiveExtraction ? 100 : 200; // Faster during extraction
+    
+    // Process next log after delay
+    setTimeout(() => {
+        processModalLogQueue();
+    }, delay);
 }
 
 function updateModalStats() {
@@ -730,8 +881,6 @@ async function handleClearAll() {
 let completionProcessed = false;
 let lastProgressMessage = '';
 let lastProgressTime = 0;
-let lastLogMessage = '';
-let lastLogTime = 0;
 
 // Listen for background script updates
 chrome.runtime.onMessage.addListener((message) => {
@@ -739,27 +888,35 @@ chrome.runtime.onMessage.addListener((message) => {
     
     switch (message.type) {
         case 'logMessage':
-            // Prevent duplicate log messages within 100ms
-            const logNow = Date.now();
-            if (message.message === lastLogMessage && (logNow - lastLogTime) < 100) {
-                console.log('Duplicate log message ignored:', message.message);
-                return;
-            }
-            lastLogMessage = message.message;
-            lastLogTime = logNow;
-            
+            // Duplicate prevention is now handled by the shared logger
             addLog(message.message, message.logType);
+            
+            // Also add to unlimited modal logs for activity log modal
+            const logNow = new Date();
+            const logEntry = {
+                timestamp: logNow.toLocaleTimeString(),
+                message: message.message,
+                type: message.logType || 'info',
+                fullTimestamp: logNow.toISOString(),
+                date: logNow.toLocaleDateString()
+            };
+            allModalLogs.push(logEntry);
+            
+            // Update modal if it's open - add to queue for sequential display
+            if (document.getElementById('activityLogModal').style.display === 'flex') {
+                queueModalLog(logEntry);
+            }
             break;
             
         case 'progressUpdate':
             // Prevent duplicate progress messages within 100ms
-            const now = Date.now();
-            if (message.message === lastProgressMessage && (now - lastProgressTime) < 100) {
+            const progressNow = Date.now();
+            if (message.message === lastProgressMessage && (progressNow - lastProgressTime) < 100) {
                 console.log('Duplicate progress message ignored:', message.message);
                 return;
             }
             lastProgressMessage = message.message;
-            lastProgressTime = now;
+            lastProgressTime = progressNow;
             
             updateProgress(message.progress, message.message);
             if (message.message) {
@@ -804,8 +961,17 @@ chrome.runtime.onMessage.addListener((message) => {
     }
 });
 
+// Prevent multiple initializations
+let isInitialized = false;
+
 // Initialize popup
 document.addEventListener('DOMContentLoaded', async () => {
+    if (isInitialized) {
+        console.log('Popup already initialized, skipping...');
+        return;
+    }
+    isInitialized = true;
+    console.log('Initializing popup...');
     // Initialize DOM elements after DOM is ready
     elements = {
         dashboardStatus: document.getElementById('dashboardStatus'),
@@ -891,11 +1057,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (lastSession && lastSession !== currentDate) {
             addLog(`--- New session (${currentDate}) ---`, 'info');
         } else if (logs.length > 0) {
-            addLog('--- Extension reloaded ---', 'info');
+           //
         }
     }
-    
-    addLog('MicroLeap Data Extractor ready');
     
     // Check if we have existing extraction data
     const response = await sendMessage('getExtractionData');
@@ -966,8 +1130,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function autoValidateStatus() {
     try {
-        addLog('Checking dashboard connection...', 'info');
-        
         // Check if we already have extraction data - if so, don't override the data mode UI
         const hasData = extractionData && extractionData.investments && extractionData.investments.length > 0;
         
@@ -977,28 +1139,24 @@ async function autoValidateStatus() {
             if (dashboardResponse.isOpen) {
                 updateStatus('dashboardStatus', 'Connected', 'success');
                 setButtonState('checkLogin', true);
-                addLog('Dashboard already connected', 'success');
                 
                 // Auto-check login status if dashboard is connected
-                addLog('Verifying login status...', 'info');
                 const loginResponse = await sendMessage('checkLoginStatus');
                 if (loginResponse.success) {
                     if (loginResponse.isLoggedIn) {
                         updateStatus('loginStatus', 'Logged in', 'success');
-                        addLog('Login verified successfully', 'success');
                         
                         // Only update UI flow if we don't have data (don't override data mode)
                         if (!hasData) {
                             // Switch to ready mode: connected and logged in
                             updateUIFlow(false, true, true);
-                            addLog('Ready for extraction! Click "Start Extraction" to begin.', 'success');
+                           // addLog('Ready for extraction! Click "Start Extraction" to begin.', 'success');
                         } else {
-                            addLog('Previous extraction data is available for download', 'info');
+                           // addLog('Previous extraction data is available for download', 'info');
                         }
                     } else {
                         updateStatus('loginStatus', 'Not logged in', 'error');
                         addLog('Please log in to MicroLeap dashboard', 'warning');
-                        addLog('Click "Open Dashboard" to log in manually', 'info');
                         // Only update UI flow if we don't have data
                         if (!hasData) {
                             // Connected but not logged in
@@ -1008,7 +1166,6 @@ async function autoValidateStatus() {
                 } else {
                     updateStatus('loginStatus', 'Check failed', 'error');
                     addLog(`Login check failed: ${loginResponse.error}`, 'error');
-                    addLog('Click "Open Dashboard" to check login manually', 'info');
                     // Only update UI flow if we don't have data
                     if (!hasData) {
                         // Connected but login check failed
